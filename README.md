@@ -49,6 +49,7 @@ use report.
 - Local fuzzy matching against 30 seeded medicine names and aliases
 - Explicit match, mismatch, and scan-again states
 - Deliberate mismatch demo for presentations
+- Clearly labeled demo prescription that automatically fills sample profile fields
 
 ### Voice accessibility
 

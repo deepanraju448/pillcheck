@@ -342,6 +342,21 @@ function populatePrescriptionProfile(details) {
   });
 }
 
+function loadDemoPrescription() {
+  const demoText = `PillCheck DEMO PRESCRIPTION - SAMPLE ONLY
+Patient: Demo Patient
+Diagnosis: high blood pressure
+Medicine: Amlodipine 5 mg
+Take one tablet every morning after breakfast for 30 days.
+Take one tablet every night after dinner for 30 days.
+NOT A REAL PRESCRIPTION`;
+  const details = parsePrescriptionText(demoText);
+  populatePrescriptionProfile(details);
+  closeScan();
+  showView('profile');
+  notify('Demo prescription identified. Review the sample details and save them.');
+}
+
 async function startCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     cameraStatus.textContent = 'Camera unavailable in this browser';
@@ -423,12 +438,13 @@ document.querySelectorAll('.scan-mode').forEach(mode => mode.addEventListener('c
     package: ['PACKAGE RECOGNITION', 'Scan a strip or bottle', 'Point your camera at the label or barcode to read the medicine name, batch, and expiry date.', 'Scan package', 'Fit the label inside the frame'],
     receipt: ['REFILL LOG', 'Scan pharmacy receipt', 'Capture a receipt to log a refill and update your local medicine stock count.', 'Scan receipt', 'Fit the receipt inside the frame'],
   }[mode.dataset.mode];
-  const voiceButton = mode.dataset.mode === 'prescription' ? '' : '<button class="text-button centered" id="voiceScanBtn">Or say “scan now”</button>';
+  const voiceButton = mode.dataset.mode === 'prescription' ? '<button class="outline-button full" id="demoPrescriptionBtn">Load demo prescription</button><p class="auth-help centered">Sample only · no real patient or doctor data</p>' : '<button class="text-button centered" id="voiceScanBtn">Or say “scan now”</button>';
   document.querySelector('.modal-copy').innerHTML = `<p class="eyebrow">${modeCopy[0]}</p><h2 id="scanTitle">${modeCopy[1]}</h2><p class="muted">${modeCopy[2]}</p><button class="solid-button full" id="verifyBtn">${modeCopy[3]}</button>${voiceButton}`;
   document.querySelector('#scanHint').textContent = modeCopy[4];
   document.querySelector('#verifyBtn').addEventListener('click', () => showScanResult());
   document.querySelector('#mismatchBtn')?.addEventListener('click', () => showScanResult(true));
   document.querySelector('#voiceScanBtn')?.addEventListener('click', () => listenForCommand(handleVoiceCommand));
+  document.querySelector('#demoPrescriptionBtn')?.addEventListener('click', loadDemoPrescription);
 }));
 document.querySelector('#remindBtn').addEventListener('click', () => notify('Reminder snoozed for 15 minutes.'));
 document.querySelector('#addMedication').addEventListener('click', () => showView('profile'));
