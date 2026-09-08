@@ -13,17 +13,17 @@ let drugDatabase = [];
 let selectedScanMode = 'pill';
 
 function setLoggedIn(contact) {
-  localStorage.setItem('pillcheck-session', JSON.stringify({ contact, signedInAt: new Date().toISOString() }));
+  sessionStorage.setItem('pillcheck-session', JSON.stringify({ contact, signedInAt: new Date().toISOString() }));
   authGate.classList.add('hidden');
 }
 
 function signOut() {
-  localStorage.removeItem('pillcheck-session');
+  sessionStorage.removeItem('pillcheck-session');
   authGate.classList.remove('hidden');
   document.querySelector('#gatePassword').value = '';
 }
 
-const storedSession = localStorage.getItem('pillcheck-session');
+const storedSession = sessionStorage.getItem('pillcheck-session');
 if (storedSession) authGate.classList.add('hidden');
 
 function getMedicationProfile() {
@@ -316,6 +316,7 @@ function parsePrescriptionText(text) {
   const medicine = drugDatabase.find(item => normalized.includes(item.name.toLowerCase())
     || item.aliases.some(alias => normalized.includes(alias.toLowerCase())))?.name || '';
   const daysMatch = normalized.match(/(?:for\s*)?(\d+)\s*days?/i);
+  const doseMatch = text.match(/(?:medicine|tablet)\s*:\s*[^,\n]+?\s+(\d+\s*(?:mg|mcg|g|ml|iu))/i);
   const slots = [];
   const addSlot = (name, time, food) => slots.push({ name, time, food });
   if (normalized.includes('morning')) addSlot('morning', '08:00', normalized.includes('before breakfast') ? 'before food' : 'after food');
@@ -326,14 +327,17 @@ function parsePrescriptionText(text) {
     issue: issueMatch ? issueMatch[1].trim() : '',
     medicine,
     days: daysMatch ? (daysMatch[1] || daysMatch[2]) : '',
+    dose: doseMatch ? `${doseMatch[1]} · 1 tablet` : '',
     slots,
   };
 }
 
 function populatePrescriptionProfile(details) {
+  document.querySelectorAll('input[name="doseSlot"]').forEach(input => { input.checked = false; });
   document.querySelector('#profileIssue').value = details.issue || '';
   document.querySelector('#profileMedicine').value = details.medicine || '';
   document.querySelector('#profileDays').value = details.days || '';
+  document.querySelector('#profileDose').value = details.dose || '';
   details.slots.forEach(slot => {
     const checkbox = document.querySelector(`input[name="doseSlot"][value="${slot.name}"]`);
     if (checkbox) checkbox.checked = true;
@@ -343,12 +347,11 @@ function populatePrescriptionProfile(details) {
 }
 
 function loadDemoPrescription() {
-  const demoText = `PillCheck DEMO PRESCRIPTION - SAMPLE ONLY
-Patient: Demo Patient
-Diagnosis: high blood pressure
-Medicine: Amlodipine 5 mg
-Take one tablet every morning after breakfast for 30 days.
-Take one tablet every night after dinner for 30 days.
+  const demoText = `PillCheck DEMO PRESCRIPTION - FICTIONAL SAMPLE ONLY
+Patient: Sample Patient
+Diagnosis: seasonal allergy
+Medicine: Cetirizine 10 mg
+Take one tablet every night after dinner for 7 days.
 NOT A REAL PRESCRIPTION`;
   const details = parsePrescriptionText(demoText);
   populatePrescriptionProfile(details);

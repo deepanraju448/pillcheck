@@ -29,7 +29,7 @@
 
   <h2>2. User Experience</h2>
   <ul>
-    <li>Prototype sign-in: any valid-looking email and any non-empty password can be used for exploration.</li>
+    <li>Prototype sign-in: any valid-looking email and any non-empty password can be used for exploration. The sign-in session lasts only for the current browser tab.</li>
     <li>Large-print accessibility mode and voice prompts.</li>
     <li>Dashboard next-dose card based on the nearest upcoming prescribed time.</li>
     <li>Medication profile for disease/problem, medicine name, treatment duration, dose times, and before/after-food instructions.</li>
@@ -53,7 +53,7 @@
 
   <h2>4. Prescription Scanning</h2>
   <p>The dashboard provides a prominent <strong>Scan prescription</strong> action. The browser camera captures a prescription image and Tesseract.js performs on-device OCR. The prototype then attempts to identify seeded medicine names, treatment duration, disease/problem labels, and time/food phrases. Recognized information is placed into the profile form for user review before saving.</p>
-  <p>For demonstrations, the prescription scanner also includes a clearly labeled <strong>Load demo prescription</strong> option. It uses a fictional sample for high blood pressure and Amlodipine, then sends that sample through the same profile extraction path. The sample is not a real prescription and contains no real patient data.</p>
+  <p>For demonstrations, the prescription scanner also includes a clearly labeled <strong>Load demo prescription</strong> option. It uses a fictional seasonal-allergy sample for Cetirizine, then sends that sample through the same profile extraction path. The sample overwrites previous form values, is not a real prescription, and contains no real patient data.</p>
   <p>OCR is a convenience feature, not a clinical extraction system. Handwriting, poor lighting, unusual abbreviations, and ambiguous instructions require manual confirmation.</p>
 
   <h2>5. Tablet Verification</h2>

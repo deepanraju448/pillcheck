@@ -31,7 +31,7 @@ use report.
 - Adherence history
 - Read-only caregiver status view
 - AI health advisor with offline fallback
-- Prototype sign-in with clear demo access guidance
+- Prototype sign-in with clear demo access guidance; closing the browser tab requires signing in again
 - Large-print accessibility mode
 - Voice prompt and browser speech recognition controls
 - Offline-ready local status and local adherence records
