@@ -47,10 +47,21 @@ function getDoseSlots(profile) {
   return profile?.time ? [{ name: 'prescribed dose', time: profile.time, food: profile.instructions || 'as prescribed' }] : [];
 }
 
+function getNextDoseSlot(slots) {
+  if (!slots.length) return null;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const upcoming = slots
+    .map(slot => ({ ...slot, minutes: Number(slot.time.split(':')[0]) * 60 + Number(slot.time.split(':')[1]) }))
+    .sort((a, b) => a.minutes - b.minutes)
+    .find(slot => slot.minutes >= currentMinutes);
+  return upcoming || slots.slice().sort((a, b) => a.time.localeCompare(b.time))[0];
+}
+
 function renderMedicationProfile() {
   const profile = getMedicationProfile();
   const slots = getDoseSlots(profile);
-  const nextSlot = slots[0];
+  const nextSlot = getNextDoseSlot(slots);
   const time = formatDoseTime(nextSlot?.time);
   document.querySelector('#nextDoseTime').innerHTML = `${time.time} <span>${time.period}</span>`;
   document.querySelector('#nextMedicine').textContent = profile?.medicine || 'No medication added';
