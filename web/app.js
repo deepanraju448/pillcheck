@@ -445,7 +445,7 @@ document.querySelectorAll('.scan-mode').forEach(mode => mode.addEventListener('c
     package: ['PACKAGE RECOGNITION', 'Scan a strip or bottle', 'Point your camera at the label or barcode to read the medicine name, batch, and expiry date.', 'Scan package', 'Fit the label inside the frame'],
     receipt: ['REFILL LOG', 'Scan pharmacy receipt', 'Capture a receipt to log a refill and update your local medicine stock count.', 'Scan receipt', 'Fit the receipt inside the frame'],
   }[mode.dataset.mode];
-  const voiceButton = mode.dataset.mode === 'prescription' ? '<button class="outline-button full" id="demoPrescriptionBtn">Load demo prescription</button><p class="auth-help centered">Sample only · no real patient or doctor data</p>' : '<button class="text-button centered" id="voiceScanBtn">Or say “scan now”</button>';
+  const voiceButton = mode.dataset.mode === 'prescription' ? '<button class="outline-button full" id="demoPrescriptionBtn">Load sample prescription</button><p class="auth-help centered">Sample only · no real patient or doctor data</p>' : '<button class="text-button centered" id="voiceScanBtn">Or say “scan now”</button>';
   document.querySelector('.modal-copy').innerHTML = `<p class="eyebrow">${modeCopy[0]}</p><h2 id="scanTitle">${modeCopy[1]}</h2><p class="muted">${modeCopy[2]}</p><button class="solid-button full" id="verifyBtn">${modeCopy[3]}</button>${voiceButton}`;
   document.querySelector('#scanHint').textContent = modeCopy[4];
   document.querySelector('#verifyBtn').addEventListener('click', () => showScanResult());
@@ -512,7 +512,7 @@ async function showScanResult(forceMismatch = false) {
     }
   } else {
     match = { matched: false, score: 0.18, detected: 'losartan' };
-    ocrText = 'demo mismatch: losartan';
+    ocrText = 'sample mismatch: losartan';
   }
   const copy = document.querySelector('.modal-copy');
   const verdict = match.matched ? 'MATCH CONFIRMED' : 'MISMATCH DETECTED';
@@ -521,7 +521,7 @@ async function showScanResult(forceMismatch = false) {
   const description = match.matched
     ? `OCR detected “${match.detected}” with ${Math.round(match.score * 100)}% confidence.`
     : `OCR detected “${match.detected}”. Your prescribed tablet should be ${expectedMedicine}.`;
-  copy.innerHTML = `<p class="eyebrow">${verdict}</p><h2>${title}</h2><p class="muted">${description}</p><p class="ocr-detail">On-device OCR text: <em>${ocrText || 'demo mismatch'}</em></p>${match.matched ? '<button class="solid-button full" id="confirmDose">Confirm dose</button>' : '<button class="solid-button full" id="retryScan">Scan the correct tablet</button>'}<button class="text-button centered" id="scanAgain">Scan again</button>`;
+  copy.innerHTML = `<p class="eyebrow">${verdict}</p><h2>${title}</h2><p class="muted">${description}</p><p class="ocr-detail">On-device OCR text: <em>${ocrText || 'sample mismatch'}</em></p>${match.matched ? '<button class="solid-button full" id="confirmDose">Confirm dose</button>' : '<button class="solid-button full" id="retryScan">Scan the correct tablet</button>'}<button class="text-button centered" id="scanAgain">Scan again</button>`;
   if (match.matched) {
     document.querySelector('#confirmDose').addEventListener('click', async () => {
       try {
