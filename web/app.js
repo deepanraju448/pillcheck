@@ -24,7 +24,11 @@ function signOut() {
 }
 
 const storedSession = sessionStorage.getItem('pillcheck-session');
-if (storedSession) authGate.classList.add('hidden');
+if (storedSession) {
+  authGate.classList.add('hidden');
+} else {
+  localStorage.removeItem('pillcheck-medication-profile');
+}
 
 function getMedicationProfile() {
   try {
