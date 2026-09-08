@@ -322,8 +322,16 @@ function listenForField(targetId) {
   listenForCommand(command => {
     const field = document.querySelector(`#${targetId}`);
     if (field) {
-      field.value = command;
-      notify(`Added "${command}" to the form.`);
+      const spokenNumbers = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fourteen: 14, fifteen: 15, thirty: 30 };
+      const value = targetId === 'profileDays'
+        ? (command.match(/\d+/)?.[0] || spokenNumbers[command.trim()] || '')
+        : command;
+      if (!value) {
+        notify('Please say the number of treatment days.');
+        return;
+      }
+      field.value = value;
+      notify(`Added "${value}" to the form.`);
     }
   });
 }
