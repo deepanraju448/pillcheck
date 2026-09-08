@@ -153,6 +153,9 @@ document.querySelector('#profileForm').addEventListener('submit', event => {
   showView('dashboard');
 });
 loadMedicationProfile();
+document.querySelectorAll('.voice-field').forEach(button => {
+  button.addEventListener('click', () => listenForField(button.dataset.target));
+});
 
 fetch('./drug-database.json')
   .then(response => {
@@ -287,6 +290,47 @@ function listenForCommand(onCommand) {
   recognition.start();
 }
 
+function listenForField(targetId) {
+  listenForCommand(command => {
+    const field = document.querySelector(`#${targetId}`);
+    if (field) {
+      field.value = command;
+      notify(`Added "${command}" to the form.`);
+    }
+  });
+}
+
+function parsePrescriptionText(text) {
+  const normalized = text.toLowerCase();
+  const medicine = drugDatabase.find(item => normalized.includes(item.name.toLowerCase())
+    || item.aliases.some(alias => normalized.includes(alias.toLowerCase())))?.name || '';
+  const daysMatch = normalized.match(/(?:for\s*)?(\d+)\s*days?/i);
+  const slots = [];
+  const addSlot = (name, time, food) => slots.push({ name, time, food });
+  if (normalized.includes('morning')) addSlot('morning', '08:00', normalized.includes('before breakfast') ? 'before food' : 'after food');
+  if (normalized.includes('afternoon') || normalized.includes('noon')) addSlot('afternoon', '13:00', normalized.includes('before lunch') ? 'before food' : 'after food');
+  if (normalized.includes('night') || normalized.includes('evening')) addSlot('night', '20:00', normalized.includes('before dinner') ? 'before food' : 'after food');
+  const issueMatch = text.match(/(?:diagnosis|problem|condition|for)\s*[:\-]?\s*([^\n,]+)/i);
+  return {
+    issue: issueMatch ? issueMatch[1].trim() : '',
+    medicine,
+    days: daysMatch ? (daysMatch[1] || daysMatch[2]) : '',
+    slots,
+  };
+}
+
+function populatePrescriptionProfile(details) {
+  document.querySelector('#profileIssue').value = details.issue || '';
+  document.querySelector('#profileMedicine').value = details.medicine || '';
+  document.querySelector('#profileDays').value = details.days || '';
+  details.slots.forEach(slot => {
+    const checkbox = document.querySelector(`input[name="doseSlot"][value="${slot.name}"]`);
+    if (checkbox) checkbox.checked = true;
+    document.querySelector(`#${slot.name}Time`).value = slot.time;
+    document.querySelector(`#${slot.name}Food`).value = slot.food;
+  });
+}
+
 async function startCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     cameraStatus.textContent = 'Camera unavailable in this browser';
@@ -418,6 +462,14 @@ async function showScanResult(forceMismatch = false) {
         },
       });
       ocrText = result.data.text;
+      if (selectedScanMode === 'prescription') {
+        const details = parsePrescriptionText(ocrText);
+        populatePrescriptionProfile(details);
+        closeScan();
+        showView('profile');
+        notify(details.medicine ? 'Prescription details recognized. Review them and save your dashboard.' : 'Prescription text captured. Please review and complete the profile fields.');
+        return;
+      }
       match = matchDrugName(ocrText, getMedicationProfile()?.medicine || 'Paracetamol');
     } catch (error) {
       notify(error.message || 'Could not read this image.');
