@@ -408,7 +408,7 @@ document.querySelectorAll('.scan-mode').forEach(mode => mode.addEventListener('c
   mode.classList.add('active');
   const modeCopy = {
     pill: ['VERIFYING 12:30 PM DOSE', 'Scan your Paracetamol', 'Hold one tablet steady in front of your camera. PillCheck checks shape, color, and imprint on-device.', 'Scan tablet', 'Place one tablet inside the frame'],
-    prescription: ['PRESCRIPTION CAPTURE', 'Scan your prescription', 'Take a clear photo of the full page. PillCheck will extract names, doses, and schedules for your review.', 'Capture prescription', 'Fit the prescription inside the frame'],
+    prescription: ['PRESCRIPTION SCAN', 'Scan your prescription', 'Take a clear photo of the full page. PillCheck will extract names, doses, and schedules for your review.', 'Scan now', 'Fit the prescription inside the frame'],
     package: ['PACKAGE RECOGNITION', 'Scan a strip or bottle', 'Point your camera at the label or barcode to read the medicine name, batch, and expiry date.', 'Scan package', 'Fit the label inside the frame'],
     receipt: ['REFILL LOG', 'Scan pharmacy receipt', 'Capture a receipt to log a refill and update your local medicine stock count.', 'Scan receipt', 'Fit the receipt inside the frame'],
   }[mode.dataset.mode];
