@@ -11,7 +11,18 @@ optional Gemini-powered health-advisor endpoint.
 > does not replace a pharmacist or clinician. OCR and medication matching must
 > be reviewed by a qualified person before real-world use.
 
+> **Demo access:** this prototype does not create real user accounts. On the
+> sign-in screen, enter any email address (for example, `demo@example.com`) and
+> any non-empty password (for example, `pillcheck`) to explore the dashboard.
+> Demo credentials are not stored or checked against a user database.
+
 ## Features
+
+## Complete project report
+
+See [PillCheck-Complete-Report.pdf](./PillCheck-Complete-Report.pdf) for the
+full feature, architecture, setup, collaboration, limitation, and responsible
+use report.
 
 ### Responsive web experience
 
@@ -20,7 +31,7 @@ optional Gemini-powered health-advisor endpoint.
 - Adherence history
 - Read-only caregiver status view
 - AI health advisor with offline fallback
-- Phone/email sign-in and onboarding entry point
+- Prototype sign-in with clear demo access guidance
 - Large-print accessibility mode
 - Voice prompt and browser speech recognition controls
 - Offline-ready local status and local adherence records

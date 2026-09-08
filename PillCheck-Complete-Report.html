@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PillCheck Complete Project Report</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font: 11pt Arial, sans-serif; color: #183b35; line-height: 1.5; }
+    h1 { color: #19493e; font-size: 28pt; margin-bottom: 4px; }
+    h2 { color: #2b775e; border-bottom: 1px solid #dfe9e4; padding-bottom: 4px; margin-top: 24px; }
+    h3 { margin-bottom: 4px; }
+    .subtitle { color: #73837f; font-size: 13pt; }
+    .notice { background: #edf8f1; border: 1px solid #d5ebdc; padding: 12px; border-radius: 8px; }
+    .meta { color: #73837f; margin: 16px 0 24px; }
+    li { margin: 4px 0; }
+    code { background: #f1f5f3; padding: 2px 4px; }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+  <h1>PillCheck</h1>
+  <div class="subtitle">Complete Project Report</div>
+  <div class="meta">Prepared September 8, 2026 · Prototype release · Repository: github.com/deepanraju448/pillcheck</div>
+
+  <div class="notice"><strong>Prototype and safety notice:</strong> PillCheck is a demonstration prototype, not a medical device. Medication information, OCR results, schedules, and matches must be reviewed by a qualified clinician or pharmacist. Never change medication based only on this application.</div>
+
+  <h2>1. Project Overview</h2>
+  <p>PillCheck is an accessibility-focused medication adherence prototype for people who need extra confidence when following a prescription. It combines a calm dashboard, voice controls, camera-assisted scanning, browser OCR, medicine-name matching, local adherence history, and an optional AI health-advisor proxy.</p>
+
+  <h2>2. User Experience</h2>
+  <ul>
+    <li>Prototype sign-in: any valid-looking email and any non-empty password can be used for exploration.</li>
+    <li>Large-print accessibility mode and voice prompts.</li>
+    <li>Dashboard next-dose card based on the nearest upcoming prescribed time.</li>
+    <li>Medication profile for disease/problem, medicine name, treatment duration, dose times, and before/after-food instructions.</li>
+    <li>Morning, afternoon, and night schedules with user-selected times such as 23:10 displayed as 11:10 PM.</li>
+    <li>Prescription scanning entry point at the top of the dashboard.</li>
+    <li>Tablet, prescription, package, and receipt scan modes.</li>
+    <li>Read-only caregiver status view and adherence history.</li>
+  </ul>
+
+  <h2>3. Prescription Profile</h2>
+  <p>The user can enter or review:</p>
+  <ol>
+    <li>Type of disease or problem, with voice input.</li>
+    <li>Tablet or medicine name, with voice input.</li>
+    <li>Number of treatment days.</li>
+    <li>Morning, afternoon, and/or night dose times.</li>
+    <li>Before-food or after-food instruction for each selected time.</li>
+    <li>Optional dose and quantity.</li>
+  </ol>
+  <p>Saved profile data is stored in browser local storage for the prototype. The dashboard, schedule, scan matching target, and reminder text update from the saved profile.</p>
+
+  <h2>4. Prescription Scanning</h2>
+  <p>The dashboard provides a prominent <strong>Scan prescription</strong> action. The browser camera captures a prescription image and Tesseract.js performs on-device OCR. The prototype then attempts to identify seeded medicine names, treatment duration, disease/problem labels, and time/food phrases. Recognized information is placed into the profile form for user review before saving.</p>
+  <p>OCR is a convenience feature, not a clinical extraction system. Handwriting, poor lighting, unusual abbreviations, and ambiguous instructions require manual confirmation.</p>
+
+  <h2>5. Tablet Verification</h2>
+  <p>The tablet flow starts the camera, captures a frame, runs OCR, and performs fuzzy matching against the active prescribed medicine and the local demo medicine database. It presents match, mismatch, retry, and confirmation states. Confirmed scan records are stored locally in IndexedDB.</p>
+
+  <h2>6. Voice and Accessibility</h2>
+  <ul>
+    <li>Talk to PillCheck starts browser speech recognition.</li>
+    <li>Voice field buttons can fill disease/problem and medicine name.</li>
+    <li>Supported commands include scan now, confirm, repeat, remind me later, and snooze.</li>
+    <li>Text-to-speech reads prompts and advisor responses when supported by the browser.</li>
+    <li>Large-print mode increases readability and control sizing.</li>
+  </ul>
+
+  <h2>7. Technical Architecture</h2>
+  <ul>
+    <li><strong>Frontend:</strong> HTML, CSS, and browser JavaScript in <code>web/</code>.</li>
+    <li><strong>Local persistence:</strong> localStorage for profile/session demo state and IndexedDB for adherence records.</li>
+    <li><strong>OCR:</strong> Tesseract.js loaded in the browser.</li>
+    <li><strong>Server:</strong> Node static server for local development and Vercel serverless functions for deployment.</li>
+    <li><strong>AI advisor:</strong> optional server-side Gemini proxy; the API key is not exposed to the browser.</li>
+    <li><strong>Mobile foundation:</strong> React Native Android/iOS project remains in the repository.</li>
+  </ul>
+
+  <h2>8. Running Locally</h2>
+  <pre>npm install
+npm run web
+Open http://127.0.0.1:4173</pre>
+  <p>Camera and microphone features require browser permission. Local development uses a simple prototype login: any email such as <code>demo@example.com</code> and any non-empty password such as <code>pillcheck</code>.</p>
+
+  <h2>9. Collaboration and Deployment</h2>
+  <p>GitHub repository: <code>https://github.com/deepanraju448/pillcheck</code></p>
+  <p>Live Vercel website: <code>https://pillcheck-opal.vercel.app</code></p>
+  <pre>git pull origin main
+git add .
+git commit -m "Describe your change"
+git push origin main</pre>
+  <p>Production deployments are published to Vercel. The current deployment is connected to the GitHub repository and the production alias above.</p>
+
+  <h2>10. Current Limitations and Future Work</h2>
+  <ul>
+    <li>Prototype sign-in is not real account authentication.</li>
+    <li>Profile data is local to the current browser and is not shared between devices.</li>
+    <li>Prescription OCR is not reliable enough for unsupervised medical use.</li>
+    <li>Clinical pill identification, handwriting recognition, encrypted cloud sync, real caregiver accounts, push notifications, and clinical/regulatory validation remain future work.</li>
+    <li>The existing Jest baseline has a React Navigation ESM configuration issue unrelated to the web prototype changes; JavaScript syntax and browser flows were validated.</li>
+  </ul>
+
+  <h2>11. Responsible Use</h2>
+  <p>Use PillCheck to support conversations with a clinician or caregiver, not to diagnose conditions or change medication. Confirm every medicine, dose, duration, timing, and food instruction against the original prescription.</p>
+</body>
+</html>
