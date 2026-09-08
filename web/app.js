@@ -14,6 +14,19 @@ let selectedScanMode = 'pill';
 
 function setLoggedIn(contact) {
   sessionStorage.setItem('pillcheck-session', JSON.stringify({ contact, signedInAt: new Date().toISOString() }));
+  if (!getMedicationProfile()) {
+    localStorage.setItem('pillcheck-medication-profile', JSON.stringify({
+      issue: 'seasonal allergy',
+      medicine: 'Cetirizine',
+      days: '7',
+      dose: '10 mg · 1 tablet',
+      slots: [
+        { name: 'morning', time: '08:00', food: 'after food' },
+        { name: 'night', time: '20:00', food: 'after food' },
+      ],
+    }));
+    renderMedicationProfile();
+  }
   authGate.classList.add('hidden');
 }
 
