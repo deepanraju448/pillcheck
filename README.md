@@ -14,7 +14,9 @@ optional Gemini-powered health-advisor endpoint.
 > **Demo access:** this prototype does not create real user accounts. On the
 > sign-in screen, enter any email address (for example, `demo@example.com`) and
 > any non-empty password (for example, `pillcheck`) to explore the dashboard.
-> Demo credentials are not stored or checked against a user database.
+> Demo credentials are not stored or checked against a user database. The
+> sign-in session lasts only for the current browser tab, so closing the tab
+> requires signing in again.
 
 ## Features
 
@@ -50,6 +52,18 @@ use report.
 - Explicit match, mismatch, and scan-again states
 - Deliberate mismatch demo for presentations
 - Clearly labeled demo prescription that automatically fills sample profile fields
+
+### Demo prescription walkthrough
+
+1. Sign in with any valid-looking email and any non-empty password.
+2. Select **Scan prescription** on the dashboard.
+3. Select the **Prescription** scan mode.
+4. Select **Load demo prescription**.
+5. Review the fictional sample fields and save the prescription.
+
+The sample prescription is intentionally fake and uses seasonal allergy,
+Cetirizine 10 mg, 7 days, and a night dose after dinner. It contains no real
+patient or doctor data and must not be used for medical decisions.
 
 ### Voice accessibility
 
@@ -146,9 +160,10 @@ source files.
 
 The prototype accepts any valid-looking email address and any non-empty password
 to make demos and collaboration easy. This is not account authentication:
-credentials are not stored or verified against a user database. Configure
-`AUTH_SECRET` in Vercel if you want signed session cookies to use a deployment
-specific secret.
+credentials are not stored or verified against a user database. The browser
+session is stored in tab-only `sessionStorage`; medication profile data is
+cleared when a new tab session starts. Configure `AUTH_SECRET` in Vercel if you
+want signed session cookies to use a deployment-specific secret.
 
 ## Run the React Native app
 
