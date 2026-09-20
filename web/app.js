@@ -11,6 +11,20 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognition = null;
 let drugDatabase = [];
 let selectedScanMode = 'pill';
+let pendingProfile = null;
+
+function updateWelcomeHeader() {
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const date = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+  const dateElement = document.querySelector('#welcomeDate');
+  const greetingElement = document.querySelector('#welcomeGreeting');
+  if (dateElement) dateElement.textContent = date;
+  if (greetingElement) greetingElement.innerHTML = `${greeting}, Deepan <span class="wave">👋</span>`;
+}
+
+updateWelcomeHeader();
 
 function setLoggedIn(contact) {
   sessionStorage.setItem('pillcheck-session', JSON.stringify({ contact, signedInAt: new Date().toISOString() }));
@@ -64,6 +78,50 @@ function getDoseSlots(profile) {
   return profile?.time ? [{ name: 'prescribed dose', time: profile.time, food: profile.instructions || 'as prescribed' }] : [];
 }
 
+const DOSE_WINDOW_MINUTES = 60;
+
+function getSlotMinutes(slot) {
+  const [hours, minutes] = slot.time.split(':').map(Number);
+  return (hours * 60) + minutes;
+}
+
+function getDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getDoseState(slot, records = [], now = new Date()) {
+  const logged = records.some(record => record.result === 'match'
+    && record.dateKey === getDateKey(now)
+    && record.slotName === slot.name
+    && record.scheduledTime === slot.time);
+  if (logged) return 'taken';
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const minutesSinceDose = currentMinutes - getSlotMinutes(slot);
+  if (minutesSinceDose < 0) return 'upcoming';
+  return minutesSinceDose > DOSE_WINDOW_MINUTES ? 'missed' : 'due';
+}
+
+function getDashboardDoseSlot(slots, records = [], now = new Date()) {
+  const sortedSlots = slots.slice().sort((a, b) => getSlotMinutes(a) - getSlotMinutes(b));
+  const priority = ['missed', 'due', 'upcoming', 'taken'];
+  return priority
+    .map(state => sortedSlots.find(slot => getDoseState(slot, records, now) === state))
+    .find(Boolean) || null;
+}
+
+function getDoseStateLabel(state) {
+  return {
+    upcoming: 'NEXT DOSE',
+    due: 'DOSE DUE',
+    missed: 'MISSED DOSE',
+    taken: 'DOSE LOGGED',
+  }[state] || 'NEXT DOSE';
+}
+
 function getNextDoseSlot(slots) {
   if (!slots.length) return null;
   const now = new Date();
@@ -75,30 +133,87 @@ function getNextDoseSlot(slots) {
   return upcoming || slots.slice().sort((a, b) => a.time.localeCompare(b.time))[0];
 }
 
-function renderMedicationProfile() {
+function renderMedicationProfile(records = []) {
   const profile = getMedicationProfile();
   const slots = getDoseSlots(profile);
-  const nextSlot = getNextDoseSlot(slots);
+  const nextSlot = getDashboardDoseSlot(slots, records);
+  const doseState = nextSlot ? getDoseState(nextSlot, records) : 'upcoming';
   const time = formatDoseTime(nextSlot?.time);
+  const doseCard = document.querySelector('.next-dose-card');
+  const doseLabel = document.querySelector('#doseLabel');
+  const markTakenButton = document.querySelector('#markTakenBtn');
+  const remindButton = document.querySelector('#remindBtn');
+
+  doseCard?.classList.toggle('missed', doseState === 'missed');
+  if (doseLabel) doseLabel.innerHTML = `<span class="live-dot"></span> ${getDoseStateLabel(doseState)}`;
   document.querySelector('#nextDoseTime').innerHTML = `${time.time} <span>${time.period}</span>`;
   document.querySelector('#nextMedicine').textContent = profile?.medicine || 'No medication added';
-  document.querySelector('#nextDoseDetail').textContent = profile
-    ? `${profile.dose || 'Dose not specified'} · ${nextSlot.food}`
+  document.querySelector('#nextDoseDetail').textContent = profile && nextSlot
+    ? `${profile.dose || 'Dose required'} · ${nextSlot.food}`
     : 'Add your prescription details to see your next dose.';
-  document.querySelector('#timeUntil').textContent = profile ? `${slots.length} prescribed time${slots.length === 1 ? '' : 's'}` : 'Set your schedule';
-  document.querySelector('#reminderText').textContent = profile
-    ? `Reminder set for ${time.time} ${time.period} · ${nextSlot.food}`
-    : 'Your prescribed schedule will appear here.';
+  document.querySelector('#timeUntil').textContent = !profile
+    ? 'Set your schedule'
+    : doseState === 'missed'
+      ? 'Action needed'
+      : doseState === 'due'
+        ? 'Due now'
+        : doseState === 'taken'
+          ? 'Logged today'
+          : `Due at ${time.time} ${time.period}`;
+  document.querySelector('#reminderText').textContent = !profile || !nextSlot
+    ? 'Your prescribed schedule will appear here.'
+    : doseState === 'missed'
+      ? `Missed dose · scheduled for ${time.time} ${time.period}. Confirm what to do with your pharmacist.`
+      : doseState === 'due'
+        ? `This dose is due now · ${nextSlot.food}`
+        : doseState === 'taken'
+          ? `Dose logged for ${time.time} ${time.period}`
+          : `Available at ${time.time} ${time.period} · ${nextSlot.food}`;
+
+  if (markTakenButton) {
+    markTakenButton.dataset.slotName = nextSlot?.name || '';
+    markTakenButton.dataset.scheduledTime = nextSlot?.time || '';
+    markTakenButton.disabled = !profile || doseState === 'upcoming' || doseState === 'taken';
+    markTakenButton.textContent = doseState === 'missed' ? 'Mark taken now' : doseState === 'taken' ? '✓ Taken' : '✓ Mark taken';
+  }
+  if (remindButton) {
+    remindButton.disabled = !profile || doseState === 'taken';
+  }
+
   const list = document.querySelector('#medicationList');
   if (!list) return;
+  const checklist = document.querySelector('.dose-checklist');
+  if (checklist) {
+    const sortedSlots = slots.slice().sort((a, b) => getSlotMinutes(a) - getSlotMinutes(b));
+    checklist.innerHTML = profile
+      ? sortedSlots.map(slot => {
+        const slotTime = formatDoseTime(slot.time);
+        const state = getDoseState(slot, records);
+        const stateLabel = state === 'taken' ? 'Taken' : state === 'missed' ? 'Missed' : state === 'due' ? 'Due now' : 'Upcoming';
+        return `<div class="dose-check ${state}" aria-label="${slotTime.time} ${slotTime.period}, ${profile.medicine}, ${stateLabel}"><span>${state === 'taken' ? '✓' : state === 'missed' ? '!' : '•'}</span><div><strong>${slotTime.time} ${slotTime.period}</strong><small>${profile.medicine}</small></div><em>${stateLabel}</em></div>`;
+      }).join('')
+      : '<div class="dose-check"><span>•</span><div><strong>No doses scheduled</strong><small>Add your prescription details</small></div><em>Setup needed</em></div>';
+  }
   list.innerHTML = profile
-    ? slots.map((slot, index) => { const slotTime = formatDoseTime(slot.time); return `<article class="med-row ${index === 0 ? 'current' : ''}"><div class="med-time"><strong>${slotTime.time}</strong><span>${slotTime.period}</span></div><div class="med-pill blue"></div><div class="med-info"><h3>${profile.medicine}</h3><p>${profile.dose || 'Dose not specified'} · ${slot.food}${profile.days ? ` · ${profile.days} days` : ''}</p></div>${index === 0 ? '<button class="scan-button" id="scanBtn">Scan tablet <span>→</span></button>' : '<span class="state-badge upcoming">Upcoming</span>'}</article>`; }).join('')
+    ? slots.slice().sort((a, b) => getSlotMinutes(a) - getSlotMinutes(b)).map(slot => {
+      const slotTime = formatDoseTime(slot.time);
+      const state = getDoseState(slot, records);
+      const stateClass = state === 'missed' ? 'missed' : state === 'taken' ? 'completed' : '';
+      const action = state === 'taken'
+        ? '<span class="state-badge done">✓ Taken</span>'
+        : state === 'missed'
+          ? `<button class="scan-button mark-slot-taken" data-slot-name="${slot.name}" data-scheduled-time="${slot.time}">Mark taken now</button>`
+          : state === 'due'
+            ? `<button class="scan-button mark-slot-taken" data-slot-name="${slot.name}" data-scheduled-time="${slot.time}">Mark taken</button>`
+            : '<span class="state-badge upcoming">Upcoming</span>';
+      return `<article class="med-row ${stateClass}"><div class="med-time" aria-label="${slotTime.time} ${slotTime.period}"><strong>${slotTime.time}</strong><span>${slotTime.period}</span></div><div class="med-pill blue"></div><div class="med-info"><h3>${profile.medicine}</h3><p>${profile.dose || 'Dose required'} · ${slot.food}${profile.days ? ` · ${profile.days} days` : ''}</p></div>${action}</article>`;
+    }).join('')
     : '<div class="soft-card"><strong>No prescription added yet.</strong><p class="muted">Open Medication profile and enter the information from your doctor.</p></div>';
-  document.querySelector('#scanBtn')?.addEventListener('click', openScan);
-  renderSchedule(profile);
+  document.querySelectorAll('.med-list .mark-slot-taken').forEach(button => button.addEventListener('click', () => markDoseTaken(button.dataset.slotName, button.dataset.scheduledTime)));
+  renderSchedule(profile, records);
 }
 
-function renderSchedule(profile) {
+function renderSchedule(profile, records = []) {
   const list = document.querySelector('#scheduleList');
   if (!list) return;
   if (!profile) {
@@ -106,8 +221,7 @@ function renderSchedule(profile) {
     return;
   }
   const slots = getDoseSlots(profile);
-  list.innerHTML = `<div class="day-divider"><span>${profile.medicine} · ${profile.days} days</span><span>${slots.length} dose${slots.length === 1 ? '' : 's'} daily</span></div>${slots.map((slot, index) => { const time = formatDoseTime(slot.time); return `<div class="schedule-item ${index === 0 ? 'next' : ''}"><span class="schedule-time">${time.time} ${time.period}</span><div class="med-pill blue"></div><div><h3>${profile.medicine} <small>${profile.dose || 'Dose not specified'} · ${slot.food}</small></h3></div>${index === 0 ? '<button class="scan-button" id="scheduleScanBtn">Scan tablet <span>→</span></button>' : '<span class="state-badge upcoming">Upcoming</span>'}</div>`; }).join('')}${profile.issue ? `<p class="muted">Health issue: ${profile.issue}</p>` : ''}`;
-  document.querySelector('#scheduleScanBtn')?.addEventListener('click', openScan);
+  list.innerHTML = `<div class="day-divider"><span>${profile.medicine} · ${profile.days} days</span><span>${slots.length} dose${slots.length === 1 ? '' : 's'} daily</span></div>${slots.map(slot => { const time = formatDoseTime(slot.time); const state = getDoseState(slot, records); return `<div class="schedule-item ${state === 'missed' ? 'missed' : ''}"><span class="schedule-time">${time.time} ${time.period}</span><div class="med-pill blue"></div><div><h3>${profile.medicine} <small>${profile.dose || 'Dose required'} · ${slot.food}</small></h3></div><span class="state-badge ${state === 'taken' ? 'done' : state === 'missed' ? 'missed-label' : 'upcoming'}">${state === 'taken' ? '✓ Taken' : state === 'missed' ? 'Missed' : state === 'due' ? 'Due now' : 'Upcoming'}</span></div>`; }).join('')}${profile.issue ? `<p class="muted">Health issue: ${profile.issue}</p>` : ''}`;
 }
 
 function loadMedicationProfile() {
@@ -162,27 +276,66 @@ document.querySelector('#gateLogin').addEventListener('click', () => {
   login(email, password, document.querySelector('#gateLogin'), 'Sign in to PillCheck', setLoggedIn);
 });
 
-document.querySelector('#profileForm').addEventListener('submit', event => {
-  event.preventDefault();
-  const profile = {
+function collectProfileForm() {
+  return {
     issue: document.querySelector('#profileIssue').value.trim(),
     medicine: document.querySelector('#profileMedicine').value.trim(),
     days: document.querySelector('#profileDays').value,
     dose: document.querySelector('#profileDose').value.trim(),
     slots: [...document.querySelectorAll('input[name="doseSlot"]:checked')].map(input => ({ name: input.value, time: document.querySelector(`#${input.value}Time`).value, food: document.querySelector(`#${input.value}Food`).value })),
   };
-  if (!profile.medicine || !profile.days || !profile.slots.length || profile.slots.some(slot => !slot.time)) {
+}
+
+function renderProfileConfirmation(profile) {
+  const summary = document.querySelector('#confirmSummary');
+  const timing = profile.slots.map(slot => `${slot.name}: ${formatDoseTime(slot.time).time} ${formatDoseTime(slot.time).period} · ${slot.food}`).join('<br>');
+  summary.innerHTML = `<strong>${profile.medicine}</strong><span>${profile.dose}</span><span>${profile.days} days</span><span>${timing}</span>`;
+}
+
+function closeProfileConfirmation() {
+  document.querySelector('#confirmModal')?.classList.remove('show');
+  pendingProfile = null;
+}
+
+document.querySelector('#profileForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const profile = collectProfileForm();
+  const doseError = document.querySelector('#profileDoseError');
+  if (!profile.dose) {
+    doseError.textContent = 'Please enter the dose — e.g. 500 mg · 1 tablet';
+    document.querySelector('#profileDose').focus();
+    return;
+  }
+  doseError.textContent = '';
+  if (!profile.issue || !profile.medicine || !profile.days || !profile.slots.length || profile.slots.some(slot => !slot.time)) {
     notify('Add the medicine, number of days, and at least one prescribed time.');
     return;
   }
-  localStorage.setItem('pillcheck-medication-profile', JSON.stringify(profile));
+  pendingProfile = profile;
+  renderProfileConfirmation(profile);
+  document.querySelector('#confirmModal').classList.add('show');
+});
+document.querySelector('#profileDose').addEventListener('input', () => {
+  document.querySelector('#profileDoseError').textContent = '';
+});
+document.querySelector('#closeConfirm').addEventListener('click', closeProfileConfirmation);
+document.querySelector('#editProfile').addEventListener('click', closeProfileConfirmation);
+document.querySelector('#confirmModal').addEventListener('click', event => {
+  if (event.target.id === 'confirmModal') closeProfileConfirmation();
+});
+document.querySelector('#confirmProfile').addEventListener('click', () => {
+  if (!pendingProfile) return;
+  localStorage.setItem('pillcheck-medication-profile', JSON.stringify(pendingProfile));
   renderMedicationProfile();
-  notify('Your dashboard was updated from your prescription.');
+  document.querySelector('#confirmModal').classList.remove('show');
+  pendingProfile = null;
   showView('dashboard');
+  notify('Medication profile updated');
 });
 loadMedicationProfile();
 document.querySelectorAll('.voice-field').forEach(button => {
-  button.addEventListener('click', () => listenForField(button.dataset.target));
+  button.dataset.idleLabel = button.getAttribute('aria-label') || 'Start voice input';
+  button.addEventListener('click', () => listenForField(button.dataset.target, button));
 });
 
 fetch('./drug-database.json')
@@ -215,7 +368,7 @@ async function saveAdherenceRecord(record) {
     transaction.onerror = () => reject(transaction.error);
   });
   database.close();
-  refreshAdherenceUI();
+  await refreshAdherenceUI();
 }
 
 async function getAdherenceRecords() {
@@ -232,20 +385,70 @@ async function getAdherenceRecords() {
 async function refreshAdherenceUI() {
   try {
     const records = await getAdherenceRecords();
-    const taken = Math.min(4, 2 + records.filter(record => record.result === 'match').length);
-    const progress = Math.round((taken / 4) * 100);
+    const profile = getMedicationProfile();
+    const slots = getDoseSlots(profile);
+    const today = getDateKey();
+    const todayRecords = records.filter(record => record.result === 'match' && record.dateKey === today);
+    const taken = slots.filter(slot => getDoseState(slot, records) === 'taken').length;
+    const total = slots.length;
+    const progress = total ? Math.round((taken / total) * 100) : 0;
+    renderMedicationProfile(records);
+    const medicationCount = profile?.medicine ? 1 : 0;
     document.querySelector('.progress-number strong').textContent = taken;
-    document.querySelector('.progress-bar span').style.width = `${progress}%`;
+    document.querySelector('.progress-number span').textContent = `of ${total} doses`;
+    document.querySelector('#statDoses').textContent = `${taken}/${total}`;
+    document.querySelector('#statAdherence').textContent = `${progress}%`;
+    document.querySelector('#statMedications').textContent = medicationCount;
+    const progressBar = document.querySelector('.progress-bar span');
+    if (progressBar) progressBar.style.width = `${progress}%`;
+    const ring = document.querySelector('.ring');
+    if (ring) ring.style.background = `radial-gradient(white 59%, transparent 60%), conic-gradient(#63ae89 ${progress}%, #e1eee7 0)`;
     document.querySelector('.ring span').textContent = `${progress}%`;
-    document.querySelector('.progress-caption span:last-child').textContent = `${4 - taken} doses left`;
+    const progressCaption = document.querySelector('.progress-caption span:last-child');
+    if (progressCaption) progressCaption.textContent = `${Math.max(0, total - taken)} doses left`;
     const historyList = document.querySelector('#history .activity-list');
-    records.slice(-5).reverse().forEach(record => {
+    if (historyList) historyList.innerHTML = '';
+    todayRecords.slice(-5).reverse().forEach(record => {
       const item = document.createElement('div');
       item.innerHTML = `<span class="activity-check">✓</span><div><strong>${record.medicine} confirmed</strong><small>${new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · OCR match saved locally</small></div><span class="activity-good">On device</span>`;
       historyList?.appendChild(item);
     });
   } catch {
     notify('Saved dose records could not be loaded.');
+  }
+}
+
+async function markDoseTaken(slotName, scheduledTime) {
+  const profile = getMedicationProfile();
+  const slot = getDoseSlots(profile).find(item => item.name === slotName && item.time === scheduledTime);
+  if (!profile || !slot) {
+    notify('Add a medication before marking a dose as taken.');
+    return;
+  }
+
+  const state = getDoseState(slot, await getAdherenceRecords());
+  if (state === 'upcoming') {
+    notify(`This dose is scheduled for ${formatDoseTime(slot.time).time} ${formatDoseTime(slot.time).period}.`);
+    return;
+  }
+  if (state === 'taken') {
+    await refreshAdherenceUI();
+    notify('This dose is already logged for today.');
+    return;
+  }
+
+  try {
+    await saveAdherenceRecord({
+      medicine: profile.medicine,
+      slotName: slot.name,
+      scheduledTime: slot.time,
+      dateKey: getDateKey(),
+      result: 'match',
+      timestamp: new Date().toISOString(),
+    });
+    notify(state === 'missed' ? `${profile.medicine} logged after the missed-dose warning.` : `${profile.medicine} marked as taken.`);
+  } catch {
+    notify('The dose could not be saved locally.');
   }
 }
 
@@ -301,39 +504,56 @@ function speak(message) {
   }
 }
 
-function listenForCommand(onCommand) {
+function listenForCommand(onCommand, button = null, startMessage = 'Listening…', preserveCase = false) {
   if (!SpeechRecognition) {
-    notify('Voice input is not supported here. Use the button instead.');
+    notify('Voice input not supported on this browser. Please type instead.');
     return;
   }
   if (recognition) recognition.abort();
   recognition = new SpeechRecognition();
-  recognition.lang = document.documentElement.lang || 'en-US';
+  recognition.lang = 'en-IN';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
-  recognition.onstart = () => notify('Listening… say confirm, scan now, repeat, or remind me later.');
+  recognition.onstart = () => {
+    button?.classList.add('listening');
+    button?.setAttribute('aria-label', 'Listening for voice input');
+    notify(startMessage);
+  };
   recognition.onerror = event => notify(event.error === 'not-allowed' ? 'Microphone permission was blocked. Allow it in your browser.' : 'I could not hear that. Please try again.');
-  recognition.onresult = event => onCommand(event.results[0][0].transcript.toLowerCase());
-  recognition.onend = () => { recognition = null; };
-  recognition.start();
+  recognition.onresult = event => {
+    const transcript = event.results[0][0].transcript;
+    onCommand(preserveCase ? transcript : transcript.toLowerCase());
+  };
+  recognition.onend = () => {
+    button?.classList.remove('listening');
+    button?.setAttribute('aria-label', button?.dataset.idleLabel || 'Start voice input');
+    recognition = null;
+  };
+  try {
+    recognition.start();
+  } catch {
+    button?.classList.remove('listening');
+    notify('Voice input could not start. Please type instead.');
+  }
 }
 
-function listenForField(targetId) {
+function listenForField(targetId, button) {
   listenForCommand(command => {
     const field = document.querySelector(`#${targetId}`);
     if (field) {
+      const normalizedCommand = command.toLowerCase();
       const spokenNumbers = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fourteen: 14, fifteen: 15, thirty: 30 };
       const value = targetId === 'profileDays'
-        ? (command.match(/\d+/)?.[0] || spokenNumbers[command.trim()] || '')
+        ? (normalizedCommand.match(/\d+/)?.[0] || spokenNumbers[normalizedCommand.trim()] || '')
         : command;
       if (!value) {
-        notify('Please say the number of treatment days.');
+        notify(targetId === 'profileDays' ? 'Please say the number of treatment days.' : 'I could not hear a value. Please try again.');
         return;
       }
       field.value = value;
       notify(`Added "${value}" to the form.`);
     }
-  });
+  }, button, 'Listening… speak your answer.', true);
 }
 
 function parsePrescriptionText(text) {
@@ -427,6 +647,7 @@ navItems.forEach(item => item.addEventListener('click', event => {
   if (item.dataset.view) showView(item.dataset.view);
 }));
 refreshAdherenceUI();
+window.setInterval(refreshAdherenceUI, 60 * 1000);
 
 function notify(message) {
   toastText.textContent = message;
@@ -451,7 +672,7 @@ function closeScan() {
   stopCamera();
 }
 
-document.querySelectorAll('#scanBtn, .scan-button').forEach(button => button.addEventListener('click', openScan));
+document.querySelectorAll('#scanBtn, .scan-button:not(.mark-slot-taken)').forEach(button => button.addEventListener('click', openScan));
 document.querySelector('#scanTabletBtn').addEventListener('click', () => openScanMode('pill'));
 document.querySelector('#scanPrescriptionBtn').addEventListener('click', () => openScanMode('prescription'));
 document.querySelector('#closeModal').addEventListener('click', closeScan);
@@ -466,15 +687,18 @@ document.querySelectorAll('.scan-mode').forEach(mode => mode.addEventListener('c
     package: ['PACKAGE RECOGNITION', 'Scan a strip or bottle', 'Point your camera at the label or barcode to read the medicine name, batch, and expiry date.', 'Scan package', 'Fit the label inside the frame'],
     receipt: ['REFILL LOG', 'Scan pharmacy receipt', 'Capture a receipt to log a refill and update your local medicine stock count.', 'Scan receipt', 'Fit the receipt inside the frame'],
   }[mode.dataset.mode];
-  const voiceButton = mode.dataset.mode === 'prescription' ? '<button class="outline-button full" id="demoPrescriptionBtn">Load sample prescription</button><p class="auth-help centered">Sample only · no real patient or doctor data</p>' : '<button class="text-button centered" id="voiceScanBtn">Or say “scan now”</button>';
+  const voiceButton = mode.dataset.mode === 'prescription' ? '' : '<button class="text-button centered" id="voiceScanBtn">Or say “scan now”</button>';
   document.querySelector('.modal-copy').innerHTML = `<p class="eyebrow">${modeCopy[0]}</p><h2 id="scanTitle">${modeCopy[1]}</h2><p class="muted">${modeCopy[2]}</p><button class="solid-button full" id="verifyBtn">${modeCopy[3]}</button>${voiceButton}`;
   document.querySelector('#scanHint').textContent = modeCopy[4];
   document.querySelector('#verifyBtn').addEventListener('click', () => showScanResult());
   document.querySelector('#mismatchBtn')?.addEventListener('click', () => showScanResult(true));
   document.querySelector('#voiceScanBtn')?.addEventListener('click', () => listenForCommand(handleVoiceCommand));
-  document.querySelector('#demoPrescriptionBtn')?.addEventListener('click', loadDemoPrescription);
 }));
 document.querySelector('#remindBtn').addEventListener('click', () => notify('Reminder snoozed for 15 minutes.'));
+document.querySelector('#markTakenBtn').addEventListener('click', event => {
+  const button = event.currentTarget;
+  markDoseTaken(button.dataset.slotName, button.dataset.scheduledTime);
+});
 document.querySelector('#addMedication').addEventListener('click', () => showView('profile'));
 
 function showScanIntro() {
@@ -546,7 +770,26 @@ async function showScanResult(forceMismatch = false) {
   if (match.matched) {
     document.querySelector('#confirmDose').addEventListener('click', async () => {
       try {
-        await saveAdherenceRecord({ timestamp: new Date().toISOString(), medicine: 'Paracetamol', expected: 'Paracetamol', ocrText, score: match.score, result: 'match', mode: selectedScanMode });
+        const profile = getMedicationProfile();
+        const records = await getAdherenceRecords();
+        const slot = getDashboardDoseSlot(getDoseSlots(profile), records);
+        if (slot && getDoseState(slot, records) === 'upcoming') {
+          const scheduled = formatDoseTime(slot.time);
+          notify(`This dose is scheduled for ${scheduled.time} ${scheduled.period}. It cannot be marked taken yet.`);
+          return;
+        }
+        await saveAdherenceRecord({
+          timestamp: new Date().toISOString(),
+          medicine: profile?.medicine || 'Paracetamol',
+          expected: profile?.medicine || 'Paracetamol',
+          slotName: slot?.name,
+          scheduledTime: slot?.time,
+          dateKey: getDateKey(),
+          ocrText,
+          score: match.score,
+          result: 'match',
+          mode: selectedScanMode,
+        });
         closeScan();
         notify('Dose confirmed and saved on this device.');
       } catch {
@@ -572,14 +815,6 @@ document.querySelector('#voiceBtn').addEventListener('click', () => {
 });
 document.querySelector('#voiceScanBtn').addEventListener('click', () => listenForCommand(handleVoiceCommand));
 
-const largeToggle = document.querySelector('#largeToggle');
-function toggleLargePrint() {
-  document.body.classList.toggle('large-print');
-  largeToggle.classList.toggle('on', document.body.classList.contains('large-print'));
-  notify(document.body.classList.contains('large-print') ? 'Large-print mode on.' : 'Large-print mode off.');
-}
-document.querySelector('#accessibilityBtn').addEventListener('click', toggleLargePrint);
-largeToggle.addEventListener('click', toggleLargePrint);
 document.querySelectorAll('.toggle.on').forEach(toggle => toggle.addEventListener('click', () => toggle.classList.toggle('on')));
 
 const authModal = document.querySelector('#authModal');
@@ -601,49 +836,4 @@ document.querySelector('#startOnboarding').addEventListener('click', () => {
   document.querySelector('.auth-card label').firstChild.textContent = 'Your name';
   document.querySelector('#authContact').placeholder = 'e.g. Deepan Raju';
   document.querySelector('#sendPassword').textContent = 'Continue setup';
-});
-
-function fallbackAdvisorAnswer(question) {
-  const bubble = document.querySelector('.chat-bubble');
-  bubble.textContent = question.toLowerCase().includes('reminder')
-    ? 'Try moving your evening reminder 15 minutes earlier. Your history shows that a little lead time helps you stay on schedule.'
-    : 'Your score improved because both morning doses were confirmed within 10 minutes of their scheduled time.';
-}
-
-async function answerAdvisor(question) {
-  const bubble = document.querySelector('.chat-bubble');
-  const status = document.querySelector('#advisorStatus');
-  bubble.textContent = 'Checking your private advisor…';
-  status.textContent = 'Gemini is thinking…';
-  try {
-    const response = await fetch('/api/gemini', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: question }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Advisor unavailable');
-    bubble.textContent = result.text;
-    status.textContent = 'Gemini connected · response generated privately';
-    speak(result.text);
-  } catch (error) {
-    fallbackAdvisorAnswer(question);
-    status.textContent = 'Offline advisor fallback · configure GEMINI_API_KEY for Gemini';
-    notify(error.message || 'Gemini is unavailable, so I showed the offline advisor response.');
-  }
-}
-document.querySelectorAll('.suggestion').forEach(button => button.addEventListener('click', () => answerAdvisor(button.textContent)));
-document.querySelector('#advisorSend').addEventListener('click', () => {
-  const input = document.querySelector('#advisorInput');
-  if (!input.value.trim()) {
-    notify('Type a question for your advisor.');
-    return;
-  }
-  answerAdvisor(input.value);
-  input.value = '';
-});
-document.querySelector('#shiftReminder').addEventListener('click', () => notify('Suggestion saved: move your evening reminder to 7:45 PM.'));
-document.querySelector('#advisorVoice').addEventListener('click', () => {
-  notify('Listening for your health question…');
-  if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance('I am listening. Ask me about your adherence.'));
 });

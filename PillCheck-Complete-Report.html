@@ -25,7 +25,7 @@
   <div class="notice"><strong>Prototype and safety notice:</strong> PillCheck is a demonstration prototype, not a medical device. Medication information, OCR results, schedules, and matches must be reviewed by a qualified clinician or pharmacist. Never change medication based only on this application.</div>
 
   <h2>1. Project Overview</h2>
-  <p>PillCheck is an accessibility-focused medication adherence prototype for people who need extra confidence when following a prescription. It combines a calm dashboard, voice controls, camera-assisted scanning, browser OCR, medicine-name matching, local adherence history, and an optional AI health-advisor proxy.</p>
+  <p>PillCheck is an accessibility-focused medication adherence prototype for people who need extra confidence when following a prescription. It combines a calm dashboard, voice controls, camera-assisted scanning, browser OCR, medicine-name matching, and local adherence history.</p>
 
   <h2>2. User Experience</h2>
   <ul>
@@ -64,7 +64,7 @@
     <li>Talk to PillCheck starts browser speech recognition.</li>
     <li>Voice field buttons can fill disease/problem and medicine name.</li>
     <li>Supported commands include scan now, confirm, repeat, remind me later, and snooze.</li>
-    <li>Text-to-speech reads prompts and advisor responses when supported by the browser.</li>
+    <li>Text-to-speech reads prompts when supported by the browser.</li>
     <li>Large-print mode increases readability and control sizing.</li>
   </ul>
 
@@ -74,7 +74,6 @@
     <li><strong>Local persistence:</strong> localStorage for profile/session demo state and IndexedDB for adherence records.</li>
     <li><strong>OCR:</strong> Tesseract.js loaded in the browser.</li>
     <li><strong>Server:</strong> Node static server for local development and Vercel serverless functions for deployment.</li>
-    <li><strong>AI advisor:</strong> optional server-side Gemini proxy; the API key is not exposed to the browser.</li>
     <li><strong>Mobile foundation:</strong> React Native Android/iOS project remains in the repository.</li>
   </ul>
 

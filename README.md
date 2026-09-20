@@ -3,8 +3,7 @@
 PillCheck is a voice-guided medication verification prototype for people who
 need extra confidence when taking multi-drug regimens. It combines a calm,
 accessible dashboard with camera-assisted scanning, browser voice controls,
-on-device OCR, fuzzy medicine-name matching, local adherence history, and an
-optional Gemini-powered health-advisor endpoint.
+on-device OCR, fuzzy medicine-name matching, and local adherence history.
 
 > **Prototype / hackathon status:** this repository demonstrates the end-to-end
 > interaction and local browser functionality. It is not a medical device and
@@ -32,7 +31,6 @@ use report.
 - Daily medication schedule
 - Adherence history
 - Read-only caregiver status view
-- AI health advisor with offline fallback
 - Prototype sign-in with clear demo access guidance; closing the browser tab requires signing in again
 - Large-print accessibility mode
 - Voice prompt and browser speech recognition controls
@@ -67,7 +65,7 @@ patient or doctor data and must not be used for medical decisions.
 
 ### Voice accessibility
 
-- Browser text-to-speech for prompts and advisor responses
+- Browser text-to-speech for prompts
 - Browser speech recognition for:
   - `scan now`
   - `confirm`
@@ -95,7 +93,7 @@ PillCheckRN/
 │   ├── index.html           # Responsive web application
 │   ├── styles.css           # Web visual system and responsive layout
 │   ├── app.js               # Web interactions, camera, voice, OCR, IndexedDB
-│   ├── server.js            # Static server and protected Gemini proxy
+│   ├── server.js            # Static server for the web prototype
 │   └── drug-database.json   # Demo medicine names and aliases
 ├── .env.example             # Environment variable template
 └── package.json
@@ -123,38 +121,15 @@ Camera and microphone APIs generally require `localhost`, `127.0.0.1`, or
 HTTPS. If access was blocked previously, use the browser address-bar
 permission controls to allow the camera and microphone.
 
-## Optional Gemini advisor
-
-Gemini is called only by the local Node server. The API key is never placed in
-`web/app.js`, `web/index.html`, or any browser bundle.
-
-1. Create or rotate a Gemini API key in Google AI Studio.
-2. Set it in the PowerShell process that starts the server:
-
-```powershell
-$env:GEMINI_API_KEY = "your-rotated-key"
-npm run web
-```
-
-The advisor calls `POST /api/gemini`. If the key is missing or Gemini is
-unavailable, the UI uses a small offline rule-based response instead.
-
-**Never commit a real API key.** If a key has been pasted into chat, source
-code, or a public repository, revoke it and create a replacement.
-
 ## Deploy to Vercel
 
-The web app includes a Vercel configuration and a serverless Gemini function.
-From the project root:
+The web app includes a Vercel configuration for the static prototype. From the
+project root:
 
 ```powershell
 npx vercel login
 npx vercel --prod
 ```
-
-In the Vercel project settings, add `GEMINI_API_KEY` as an Environment Variable
-for Production. Do not add the key to `web/`, `.env.example`, or committed
-source files.
 
 ## Password login
 
@@ -208,7 +183,6 @@ The website was validated with:
 - Live scan modal flow
 - Deliberate mismatch verdict
 - Local IndexedDB dose persistence
-- Advisor fallback behavior when Gemini is not configured
 
 ## Roadmap
 

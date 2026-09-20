@@ -25,37 +25,6 @@ function readRequestBody(request) {
   });
 }
 
-async function handleGemini(request, response) {
-  if (!process.env.GEMINI_API_KEY) {
-    sendJson(response, 503, { error: 'Gemini is not configured. Set GEMINI_API_KEY before starting the server.' });
-    return;
-  }
-  const body = JSON.parse(await readRequestBody(request));
-  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-  if (!prompt) {
-    sendJson(response, 400, { error: 'A prompt is required.' });
-    return;
-  }
-  const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(process.env.GEMINI_API_KEY)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: `You are PillCheck's medication adherence advisor. Give concise, non-diagnostic guidance. Never invent a dosage or tell a user to change medication. If asked about urgent symptoms, recommend a healthcare professional. User question: ${prompt}` }] }],
-    }),
-  });
-  const result = await geminiResponse.json();
-  if (!geminiResponse.ok) {
-    sendJson(response, geminiResponse.status, { error: result.error?.message || 'Gemini request failed.' });
-    return;
-  }
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    sendJson(response, 502, { error: 'Gemini returned no text.' });
-    return;
-  }
-  sendJson(response, 200, { text });
-}
-
 async function handleLogin(request, response) {
   const body = JSON.parse(await readRequestBody(request));
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -94,14 +63,6 @@ http.createServer(async (request, response) => {
       await handleLogin(request, response);
     } catch (error) {
       sendJson(response, 500, { error: error.message || 'Unable to sign in.' });
-    }
-    return;
-  }
-  if (request.method === 'POST' && request.url === '/api/gemini') {
-    try {
-      await handleGemini(request, response);
-    } catch (error) {
-      sendJson(response, 500, { error: error.message || 'Gemini request failed.' });
     }
     return;
   }

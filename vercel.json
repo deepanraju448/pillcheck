@@ -12,10 +12,6 @@
   ],
   "routes": [
     {
-      "src": "/api/gemini",
-      "dest": "/api/gemini.js"
-    },
-    {
       "src": "/api/auth/login",
       "dest": "/api/auth/login.js"
     },
