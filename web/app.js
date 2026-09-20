@@ -500,11 +500,16 @@ function matchDrugName(ocrText, expectedName) {
   return { matched: best.score >= 0.68, score: best.score, detected: best.text || 'no medicine name detected' };
 }
 
-function speak(message) {
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(message));
+function speak(message, onEnd = null) {
+  if (!('speechSynthesis' in window)) {
+    onEnd?.();
+    return;
   }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.onend = () => onEnd?.();
+  utterance.onerror = () => onEnd?.();
+  window.speechSynthesis.speak(utterance);
 }
 
 function listenForCommand(onCommand, button = null, startMessage = 'Listening…', preserveCase = false) {
@@ -514,23 +519,36 @@ function listenForCommand(onCommand, button = null, startMessage = 'Listening…
   }
   if (recognition) recognition.abort();
   recognition = new SpeechRecognition();
-  recognition.lang = 'en-IN';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
+  recognition.lang = navigator.language || 'en-IN';
+  recognition.interimResults = true;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 3;
+  let receivedResult = false;
   recognition.onstart = () => {
     button?.classList.add('listening');
     button?.setAttribute('aria-label', 'Listening for voice input');
     notify(startMessage);
   };
-  recognition.onerror = event => notify(event.error === 'not-allowed' ? 'Microphone permission was blocked. Allow it in your browser.' : 'I could not hear that. Please try again.');
+  recognition.onerror = event => {
+    if (event.error === 'aborted') return;
+    notify(event.error === 'not-allowed'
+      ? 'Microphone permission was blocked. Allow it in your browser.'
+      : 'I could not hear that clearly. Please try again.');
+  };
+  recognition.onnomatch = () => notify('I could not understand that. Try saying “scan now” or “repeat my dose”.');
   recognition.onresult = event => {
-    const transcript = event.results[0][0].transcript;
-    onCommand(preserveCase ? transcript : transcript.toLowerCase());
+    const result = event.results[event.results.length - 1];
+    if (!result.isFinal) return;
+    receivedResult = true;
+    const transcript = Array.from(result)
+      .sort((a, b) => b.confidence - a.confidence)[0].transcript.trim();
+    if (transcript) onCommand(preserveCase ? transcript : transcript.toLowerCase());
   };
   recognition.onend = () => {
     button?.classList.remove('listening');
     button?.setAttribute('aria-label', button?.dataset.idleLabel || 'Start voice input');
     recognition = null;
+    if (!receivedResult) notify('I did not hear a clear command. Please try again.');
   };
   try {
     recognition.start();
@@ -827,13 +845,27 @@ document.querySelector('#verifyBtn').addEventListener('click', () => showScanRes
 document.querySelector('#mismatchBtn')?.addEventListener('click', () => showScanResult(true));
 
 document.querySelector('#voiceBtn').addEventListener('click', () => {
-  speak('I am listening. Say scan now, confirm, repeat, or remind me later.');
-  listenForCommand(command => {
-    if (command.includes('scan')) openScan();
-    else if (command.includes('repeat')) speak('Your next dose is Paracetamol, 500 milligrams, at 12:30 PM.');
-    else if (command.includes('later') || command.includes('snooze')) notify('Reminder snoozed for 15 minutes.');
-    else notify(`I heard “${command}”. Try saying scan now or repeat.`);
-  });
+  const button = document.querySelector('#voiceBtn');
+  const startListening = () => listenForCommand(command => {
+    const normalizedCommand = command.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    notify(`I heard “${command}”.`);
+    if (/\b(scan|camera|verify)\b/.test(normalizedCommand)) {
+      openScan();
+    } else if (/\b(repeat|next|what.*dose|medicine|medication)\b/.test(normalizedCommand)) {
+      const profile = getMedicationProfile();
+      const slot = getNextDoseSlot(getDoseSlots(profile));
+      const time = formatDoseTime(slot?.time);
+      speak(profile && slot
+        ? `Your next dose is ${profile.medicine}, ${profile.dose || 'as prescribed'}, at ${time.time} ${time.period}.`
+        : 'You do not have a medication schedule yet.');
+    } else if (/\b(later|snooze|remind)\b/.test(normalizedCommand)) {
+      notify('Reminder snoozed for 15 minutes.');
+    } else {
+      notify('Try saying “scan now”, “repeat my dose”, or “remind me later”.');
+    }
+  }, button);
+  window.speechSynthesis?.cancel();
+  speak('I am listening. Please say scan now, repeat my dose, or remind me later.', startListening);
 });
 document.querySelector('#voiceScanBtn').addEventListener('click', () => listenForCommand(handleVoiceCommand));
 
