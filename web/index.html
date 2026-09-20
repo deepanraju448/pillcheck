@@ -30,7 +30,7 @@
       </div>
     </div>
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar" id="mobileNav" aria-label="PillCheck navigation">
         <a class="brand" href="#" data-view="dashboard" aria-label="PillCheck home">
           <span class="brand-mark">✦</span>
           <span>PillCheck</span>
@@ -52,12 +52,13 @@
           <button class="profile-card" id="profileBtn" aria-label="Open profile"><span class="avatar">DR</span><span><strong>Deepan Raju</strong><small>My account</small></span><span class="chevron">›</span></button>
         </div>
       </aside>
+      <button class="mobile-menu-backdrop" id="mobileMenuBackdrop" type="button" aria-label="Close menu"></button>
 
       <main class="main-content">
         <header class="topbar">
           <div class="mobile-brand"><span class="brand-mark">✦</span> PillCheck</div>
           <div class="topbar-actions">
-            <button class="menu-button" aria-label="Open menu">☰</button>
+            <button class="menu-button" id="menuButton" type="button" aria-label="Open menu" aria-controls="mobileNav" aria-expanded="false">☰</button>
           </div>
         </header>
 

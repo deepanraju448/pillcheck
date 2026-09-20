@@ -6,6 +6,9 @@ const toastText = document.querySelector('#toastText');
 const authGate = document.querySelector('#authGate');
 const cameraVideo = document.querySelector('#cameraVideo');
 const cameraStatus = document.querySelector('#cameraStatus');
+const menuButton = document.querySelector('#menuButton');
+const mobileNav = document.querySelector('#mobileNav');
+const mobileMenuBackdrop = document.querySelector('#mobileMenuBackdrop');
 let cameraStream = null;
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
@@ -642,9 +645,28 @@ function showView(name) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function setMobileMenuOpen(isOpen) {
+  mobileNav?.classList.toggle('open', isOpen);
+  mobileMenuBackdrop?.classList.toggle('show', isOpen);
+  document.body.classList.toggle('menu-open', isOpen);
+  menuButton?.setAttribute('aria-expanded', String(isOpen));
+  menuButton?.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+}
+
+menuButton?.addEventListener('click', () => {
+  setMobileMenuOpen(!mobileNav?.classList.contains('open'));
+});
+mobileMenuBackdrop?.addEventListener('click', () => setMobileMenuOpen(false));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') setMobileMenuOpen(false);
+});
+
 navItems.forEach(item => item.addEventListener('click', event => {
   event.preventDefault();
-  if (item.dataset.view) showView(item.dataset.view);
+  if (item.dataset.view) {
+    showView(item.dataset.view);
+    setMobileMenuOpen(false);
+  }
 }));
 refreshAdherenceUI();
 window.setInterval(refreshAdherenceUI, 60 * 1000);
